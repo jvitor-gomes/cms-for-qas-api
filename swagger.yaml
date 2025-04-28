@@ -1,0 +1,732 @@
+openapi: 3.0.0
+info:
+  title: CMS For QA's (API de Gestão de Conteúdo)
+  description: Uma API para gerenciamento de conteúdo com usuários, categorias e artigos
+  version: 1.0.0
+  contact:
+    email: bgomes.joaovitor@gmail.com
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor de Desenvolvimento
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Login:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nomeCompleto:
+              type: string
+            nomeUsuario:
+              type: string
+            email:
+              type: string
+              format: email
+            dataCriacao:
+              type: string
+              format: date-time
+        token:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nomeCompleto:
+          type: string
+        nomeUsuario:
+          type: string
+        email:
+          type: string
+          format: email
+        dataCriacao:
+          type: string
+          format: date-time
+        artigos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Article'
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        descricao:
+          type: string
+        dataCriacao:
+          type: string
+          format: date-time
+        artigos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Article'
+
+    Article:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+          maxLength: 100
+        conteudo:
+          type: string
+        autorId:
+          type: string
+          format: uuid
+        categoriaId:
+          type: string
+          format: uuid
+        dataPublicacao:
+          type: string
+          format: date-time
+        dataCriacao:
+          type: string
+          format: date-time
+        autor:
+          $ref: '#/components/schemas/User'
+        categoria:
+          $ref: '#/components/schemas/Category'
+
+    Error:
+      type: object
+      properties:
+        erro:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              msg:
+                type: string
+              param:
+                type: string
+              location:
+                type: string
+
+tags:
+  - name: Autenticação
+    description: Operações de autenticação
+  - name: Usuários
+    description: Operações relacionadas a usuários
+  - name: Categorias
+    description: Operações relacionadas a categorias
+  - name: Artigos
+    description: Operações relacionadas a artigos
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Autenticação
+      summary: Realizar login
+      description: Autentica um usuário e retorna um token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - senha
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "usuario@email.com"
+                senha:
+                  type: string
+                  format: password
+                  example: "Senha123"
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Login'
+        '401':
+          description: Email ou senha inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usuarios:
+    post:
+      tags:
+        - Usuários
+      summary: Criar um novo usuário
+      description: Cria um novo usuário no sistema (não requer autenticação)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nomeCompleto
+                - nomeUsuario
+                - email
+                - senha
+              properties:
+                nomeCompleto:
+                  type: string
+                  example: "João da Silva"
+                nomeUsuario:
+                  type: string
+                  example: "joaosilva"
+                email:
+                  type: string
+                  format: email
+                  example: "joao@email.com"
+                senha:
+                  type: string
+                  format: password
+                  example: "Senha123"
+      responses:
+        '201':
+          description: Usuário criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Dados inválidos ou usuário já existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno do servidor
+          
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Usuários
+      summary: Listar usuários
+      description: Retorna uma lista de usuários com filtros opcionais
+      parameters:
+        - in: query
+          name: nomeUsuario
+          schema:
+            type: string
+          description: Filtrar por nome de usuário
+        - in: query
+          name: email
+          schema:
+            type: string
+          description: Filtrar por email
+      responses:
+        '200':
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Não autorizado
+        '500':
+          description: Erro interno do servidor
+
+  /usuarios/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Usuários
+      summary: Buscar usuário por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Usuário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Usuário não encontrado
+          
+    put:
+      security:
+        - bearerAuth: []
+      tags:
+        - Usuários
+      summary: Atualizar usuário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nomeCompleto:
+                  type: string
+                nomeUsuario:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                senha:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Usuário atualizado ou sem alterações
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      mensagem:
+                        type: string
+                        example: "Não houve alterações"
+        '400':
+          description: Dados inválidos ou conflito com usuário existente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  erro:
+                    type: string
+                    example: "Nome de usuário já está em uso"
+        '401':
+          description: Não autorizado
+        '404':
+          description: Usuário não encontrado
+          
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Usuários
+      summary: Excluir usuário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Usuário excluído com sucesso
+        '401':
+          description: Não autorizado
+        '404':
+          description: Usuário não encontrado
+        '400':
+          description: Não é possível excluir (possui artigos vinculados)
+
+  /categorias:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Categorias
+      summary: Criar uma nova categoria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome
+              properties:
+                nome:
+                  type: string
+                  example: "Tecnologia"
+                descricao:
+                  type: string
+                  example: "Artigos sobre tecnologia"
+      responses:
+        '201':
+          description: Categoria criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Não autorizado
+        '500':
+          description: Erro interno do servidor
+
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Categorias
+      summary: Listar categorias
+      parameters:
+        - in: query
+          name: nome
+          schema:
+            type: string
+          description: Filtrar por nome
+      responses:
+        '200':
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+        '401':
+          description: Não autorizado
+        '500':
+          description: Erro interno do servidor
+
+  /categorias/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Categorias
+      summary: Buscar categoria por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Categoria encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Categoria não encontrada
+        '500':
+          description: Erro interno do servidor
+
+    put:
+      security:
+        - bearerAuth: []
+      tags:
+        - Categorias
+      summary: Atualizar categoria
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nome:
+                  type: string
+                descricao:
+                  type: string
+      responses:
+        '200':
+          description: Categoria atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Categoria não encontrada
+        '500':
+          description: Erro interno do servidor
+
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Categorias
+      summary: Excluir categoria
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Categoria excluída com sucesso
+        '400':
+          description: Não é possível excluir (possui artigos vinculados)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Categoria não encontrada
+        '500':
+          description: Erro interno do servidor
+
+  /artigos:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Artigos
+      summary: Criar um novo artigo
+      description: Cria um novo artigo usando o nome do autor e nome da categoria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - titulo
+                - conteudo
+                - nomeAutor
+                - nomeCategoria
+              properties:
+                titulo:
+                  type: string
+                  maxLength: 100
+                  example: "Introdução aos Testes Automatizados"
+                conteudo:
+                  type: string
+                  example: "Exemplos de ferramentas de testes automatizados..."
+                nomeAutor:
+                  type: string
+                  example: "Usuario"
+                nomeCategoria:
+                  type: string
+                  example: "Tecnologia"
+                dataPublicacao:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Artigo criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Autor ou categoria não encontrados
+        '500':
+          description: Erro interno do servidor
+
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Artigos
+      summary: Listar artigos
+      parameters:
+        - in: query
+          name: categoriaId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por categoria
+        - in: query
+          name: autorId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por autor
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Número da página
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Itens por página
+      responses:
+        '200':
+          description: Lista de artigos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Article'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  lastPage:
+                    type: integer
+        '401':
+          description: Não autorizado
+        '500':
+          description: Erro interno do servidor
+
+  /artigos/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Artigos
+      summary: Buscar artigo por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Artigo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Artigo não encontrado
+          
+    put:
+      security:
+        - bearerAuth: []
+      tags:
+        - Artigos
+      summary: Atualizar artigo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                titulo:
+                  type: string
+                  maxLength: 100
+                conteudo:
+                  type: string
+      responses:
+        '200':
+          description: Artigo atualizado
+        '401':
+          description: Não autorizado
+        '404':
+          description: Artigo não encontrado
+        '400':
+          description: Dados inválidos
+          
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Artigos
+      summary: Excluir artigo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Artigo excluído com sucesso
+        '401':
+          description: Não autorizado
+        '404':
+          description: Artigo não encontrado 
