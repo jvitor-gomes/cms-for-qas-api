@@ -1,4 +1,4 @@
-# API de Gestão de Conteúdo (CMS For QA's)
+# API - CMS For QA's (Gestão de Conteúdo)
 
 Uma API RESTful para gestão de conteúdo com autenticação JWT, permitindo gerenciar usuários, categorias e artigos.
 
