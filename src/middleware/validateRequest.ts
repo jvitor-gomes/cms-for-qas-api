@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { validationResult } from "express-validator";
+import { LoggerService } from "../services/LoggerService";
 
 export const validateRequest = (
     req: Request,
@@ -8,7 +9,10 @@ export const validateRequest = (
 ): Response | void => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        const validationErrors = errors.array();
+        LoggerService.warn(`Validação falhou na rota ${req.method} ${req.path}`, { errors: validationErrors });
+        return res.status(400).json({ errors: validationErrors });
     }
+    LoggerService.info(`Validação bem-sucedida na rota ${req.method} ${req.path}`);
     next();
-}; 
+};
