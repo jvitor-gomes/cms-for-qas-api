@@ -5,6 +5,7 @@ import { Article } from "../entities/Article";
 import { User } from "../entities/User";
 import { Category } from "../entities/Category";
 import { validateRequest } from "../middleware/validateRequest";
+import { LoggerService } from "../services/LoggerService";
 
 const router = Router();
 const articleRepository = AppDataSource.getRepository(Article);
@@ -27,12 +28,14 @@ router.post("/",
     async (req: Request, res: Response) => {
         try {
             const { titulo, conteudo, nomeAutor, nomeCategoria, dataPublicacao } = req.body;
+            LoggerService.info(`Iniciando criação de artigo: ${titulo}`);
 
             const autor = await userRepository.findOne({
                 where: { nomeUsuario: nomeAutor }
             });
 
             if (!autor) {
+                LoggerService.warn(`Autor não encontrado: ${nomeAutor}`);
                 return res.status(404).json({ erro: "Autor não encontrado" });
             }
         
@@ -41,6 +44,7 @@ router.post("/",
             });
 
             if (!categoria) {
+                LoggerService.warn(`Categoria não encontrada: ${nomeCategoria}`);
                 return res.status(404).json({ erro: "Categoria não encontrada" });
             }
 
@@ -52,10 +56,11 @@ router.post("/",
             article.dataPublicacao = dataPublicacao ? new Date(dataPublicacao) : new Date();
 
             await articleRepository.save(article);
+            LoggerService.info(`Artigo criado com sucesso: ${article.id}`);
 
             return res.status(201).json(article);
         } catch (error) {
-            console.error("Erro ao criar artigo:", error);
+            LoggerService.error("Erro ao criar artigo", error);
             return res.status(500).json({ erro: "Erro ao criar artigo" });
         }
     }
@@ -64,6 +69,8 @@ router.post("/",
 router.get("/", async (req: Request, res: Response) => {
     try {
         const { categoria_id, autor_id, page = 1, limit = 10 } = req.query;
+        LoggerService.info(`Listando artigos - page: ${page}, limit: ${limit}`, { categoria_id, autor_id });
+
         const skip = (Number(page) - 1) * Number(limit);
         let where: any = {};
 
@@ -82,6 +89,7 @@ router.get("/", async (req: Request, res: Response) => {
             order: { dataPublicacao: "DESC" }
         });
 
+        LoggerService.info(`Artigos listados com sucesso. Total: ${total}`);
         return res.json({
             data: articles,
             total,
@@ -89,23 +97,26 @@ router.get("/", async (req: Request, res: Response) => {
             lastPage: Math.ceil(total / Number(limit))
         });
     } catch (error) {
-        console.error("Erro ao listar artigos:", error);
+        LoggerService.error("Erro ao listar artigos", error);
         return res.status(500).json({ erro: "Erro ao listar artigos" });
     }
 });
 
 router.get("/:id", async (req: Request, res: Response) => {
     try {
+        LoggerService.info(`Buscando artigo: ${req.params.id}`);
         const article = await articleRepository.findOne({
             where: { id: req.params.id },
             relations: ["autor", "categoria"]
         });
         if (!article) {
+            LoggerService.warn(`Artigo não encontrado: ${req.params.id}`);
             return res.status(404).json({ erro: "Artigo não encontrado" });
         }
+        LoggerService.info(`Artigo encontrado: ${req.params.id}`);
         return res.json(article);
     } catch (error) {
-        console.error("Erro ao buscar artigo:", error);
+        LoggerService.error(`Erro ao buscar artigo: ${req.params.id}`, error);
         return res.status(500).json({ erro: "Erro ao buscar artigo" });
     }
 });
@@ -122,12 +133,14 @@ router.put("/:id",
     ],
     async (req: Request, res: Response) => {
         try {
+            LoggerService.info(`Iniciando atualização do artigo: ${req.params.id}`);
             const article = await articleRepository.findOne({ 
                 where: { id: req.params.id },
                 relations: ["autor", "categoria"]
             });
 
             if (!article) {
+                LoggerService.warn(`Artigo não encontrado para atualização: ${req.params.id}`);
                 return res.status(404).json({ erro: "Artigo não encontrado" });
             }
 
@@ -136,15 +149,17 @@ router.put("/:id",
             );
 
             if (!changes) {
+                LoggerService.info(`Nenhuma alteração necessária para o artigo: ${req.params.id}`);
                 return res.status(200).json({ mensagem: "Não houve alterações" });
             }
 
             articleRepository.merge(article, req.body);
             await articleRepository.save(article);
+            LoggerService.info(`Artigo atualizado com sucesso: ${req.params.id}`);
             
             return res.json(article);
         } catch (error) {
-            console.error("Erro ao atualizar artigo:", error);
+            LoggerService.error(`Erro ao atualizar artigo: ${req.params.id}`, error);
             return res.status(500).json({ erro: "Erro ao atualizar artigo" });
         }
     }
@@ -152,17 +167,20 @@ router.put("/:id",
 
 router.delete("/:id", async (req: Request, res: Response) => {
     try {
+        LoggerService.info(`Iniciando exclusão do artigo: ${req.params.id}`);
         const article = await articleRepository.findOne({ where: { id: req.params.id } });
         if (!article) {
+            LoggerService.warn(`Artigo não encontrado para exclusão: ${req.params.id}`);
             return res.status(404).json({ erro: "Artigo não encontrado" });
         }
 
         await articleRepository.remove(article);
+        LoggerService.info(`Artigo excluído com sucesso: ${req.params.id}`);
         return res.status(204).send();
     } catch (error) {
-        console.error("Erro ao excluir artigo:", error);
+        LoggerService.error(`Erro ao excluir artigo: ${req.params.id}`, error);
         return res.status(500).json({ erro: "Erro ao excluir artigo" });
     }
 });
 
-export default router; 
+export default router;
