@@ -1,5 +1,6 @@
 import { AppDataSource } from "../database/data-source";
 import { EventSubscriber, EntitySubscriberInterface, InsertEvent } from "typeorm";
+import { LoggerService } from "./LoggerService";
 
 @EventSubscriber()
 export class DatabaseCleanupService implements EntitySubscriberInterface {
@@ -10,7 +11,10 @@ export class DatabaseCleanupService implements EntitySubscriberInterface {
     constructor() {
         this.tableCounters = new Map();
         AppDataSource.subscribers.push(this);
-        console.log("Serviço de limpeza automática do banco de dados iniciado");
+        LoggerService.info("Serviço de limpeza automática do banco de dados iniciado", {
+            limiteRegistros: DatabaseCleanupService.LIMITE_REGISTROS,
+            registrosParaRemover: DatabaseCleanupService.REGISTROS_PARA_REMOVER
+        });
     }
 
     afterInsert(event: InsertEvent<any>): void {
@@ -19,6 +23,10 @@ export class DatabaseCleanupService implements EntitySubscriberInterface {
         this.tableCounters.set(tableName, currentCount);
 
         if (currentCount >= DatabaseCleanupService.LIMITE_REGISTROS) {
+            LoggerService.info("Limite de registros atingido, iniciando limpeza", {
+                tabela: tableName,
+                registrosAtuais: currentCount
+            });
             this.limparRegistrosAntigos(event.metadata.target, tableName);
             this.tableCounters.set(tableName, 0);
         }
@@ -36,10 +44,13 @@ export class DatabaseCleanupService implements EntitySubscriberInterface {
 
             if (registrosAntigos.length > 0) {
                 await repository.remove(registrosAntigos);
-                console.log(`[Limpeza Automática] Removidos ${registrosAntigos.length} registros antigos da tabela ${tableName}`);
+                LoggerService.info("Registros antigos removidos com sucesso", {
+                    tabela: tableName,
+                    quantidadeRemovida: registrosAntigos.length
+                });
             }
         } catch (error) {
-            console.error(`[Limpeza Automática] Erro ao limpar registros da tabela ${tableName}:`, error);
+            LoggerService.error(`Erro ao limpar registros da tabela ${tableName}`, error);
         }
     }
 
@@ -52,13 +63,22 @@ export class DatabaseCleanupService implements EntitySubscriberInterface {
                 const count = await repository.count();
                 
                 if (count >= DatabaseCleanupService.LIMITE_REGISTROS) {
+                    LoggerService.warn("Tabela excedeu limite de registros", {
+                        tabela: entity.tableName,
+                        registrosAtuais: count,
+                        limite: DatabaseCleanupService.LIMITE_REGISTROS
+                    });
                     await this.limparRegistrosAntigos(entity.target, entity.tableName);
                 }
                 
                 this.tableCounters.set(entity.tableName, count % DatabaseCleanupService.LIMITE_REGISTROS);
+                LoggerService.info("Estado atual da tabela verificado", {
+                    tabela: entity.tableName,
+                    registrosAtuais: count
+                });
             } catch (error) {
-                console.error(`[Limpeza Automática] Erro ao verificar tabela ${entity.tableName}:`, error);
+                LoggerService.error(`Erro ao verificar tabela ${entity.tableName}`, error);
             }
         }
     }
-} 
+}

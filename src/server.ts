@@ -12,6 +12,7 @@ import authRoutes from "./routes/authRoutes";
 import { authMiddleware } from "./middleware/authMiddleware";
 import { Router } from "express";
 import { DatabaseCleanupService } from "./services/DatabaseCleanupService";
+import { LoggerService } from "./services/LoggerService";
 
 const app = express();
 
@@ -43,14 +44,14 @@ AppDataSource.initialize()
     .then(async () => {
         const cleanupService = new DatabaseCleanupService();
         await cleanupService.verificarEstadoAtual();
+        LoggerService.info("Banco de dados inicializado com sucesso");
 
         app.listen(PORT, () => {
-            console.log("\n=== CMS API ===");
-            console.log(`Servidor iniciado com sucesso na porta ${PORT}`);
-            console.log(`Documentação: http://localhost:${PORT}/api-docs\n`);
+            LoggerService.info(`Servidor iniciado na porta ${PORT}`);
+            LoggerService.info(`Documentação disponível em http://localhost:${PORT}/api-docs`);
         });
     })
     .catch((error) => {
-        console.error("Erro ao inicializar o servidor:", error);
+        LoggerService.error("Erro ao inicializar o servidor", error);
         process.exit(1);
-    }); 
+    });
